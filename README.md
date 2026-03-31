@@ -1,5 +1,7 @@
 # B-Bot
 
+Agentic command line assistant that translates natural language into pre-designated tooling calls. For this lazy programmer who doesn't want to remember stuff like `docker rm -fv $(docker ps -qa)`
+
 `bbot` is a minimal Rust CLI with typed tool-oriented capabilities:
 
 - `docker.remove_all_running_containers`
