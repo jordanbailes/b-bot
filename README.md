@@ -10,6 +10,29 @@ Agentic command line assistant that translates natural language into pre-designa
 
 It uses a local Ollama model to decide whether the user request matches one of the available tools. Docker cleanup is executed through Docker's API using `bollard`, Rust LOC counting is executed directly through the embedded `tokei` crate, and Rust coverage is executed through the embedded `cargo-tarpaulin` library using the `ptrace` engine.
 
+## Prerequisites
+
+Install and start Ollama before running `bbot`.
+
+Linux quick start:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama serve
+```
+
+In another terminal, pull the default model used by this repo:
+
+```bash
+ollama pull qwen3:8b
+```
+
+If you want Ollama to run as a background service, the official Linux docs cover the recommended `systemd` setup. For macOS and Windows, use the platform-specific install docs:
+
+- <https://docs.ollama.com/linux>
+- <https://docs.ollama.com/cli>
+- <https://docs.ollama.com/>
+
 ## Usage
 
 ```bash
