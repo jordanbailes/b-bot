@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::error::{AppError, Result};
-use crate::ollama::ToolDefinition;
+use crate::planner::ToolDefinition;
 use crate::tools::{Tool, ToolExecutionOutcome, ToolPreview, rust_run_coverage_tool_definition};
 
 #[derive(Debug, Deserialize)]

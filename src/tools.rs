@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use crate::error::{AppError, Result};
-use crate::ollama::ToolDefinition;
+use crate::planner::ToolDefinition;
 
 mod coverage;
 mod docker;

@@ -6,7 +6,7 @@ use serde_json::Value;
 use tokei::{Config, LanguageType, Languages};
 
 use crate::error::{AppError, Result};
-use crate::ollama::ToolDefinition;
+use crate::planner::ToolDefinition;
 use crate::tools::{
     Tool, ToolExecutionOutcome, ToolPreview, rust_count_lines_of_code_tool_definition,
 };

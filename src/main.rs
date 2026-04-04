@@ -1,17 +1,21 @@
 mod cli;
+mod codex;
 mod error;
 mod gap_store;
 mod ollama;
+mod planner;
 mod tools;
 
 use std::io::{self, Write};
 
 use clap::Parser;
 
-use crate::cli::Cli;
+use crate::cli::{Backend, Cli};
+use crate::codex::{CodexPlannerBackend, CodexPlannerConfig};
 use crate::error::{AppError, Result};
 use crate::gap_store::GapStore;
-use crate::ollama::{Message, OllamaClient, SYSTEM_PROMPT};
+use crate::ollama::{OllamaPlannerBackend, OllamaPlannerConfig};
+use crate::planner::PlannerBackend;
 use crate::tools::ToolRegistry;
 
 #[tokio::main]
@@ -26,17 +30,45 @@ async fn main() {
 
 async fn run(cli: Cli) -> Result<()> {
     let registry = ToolRegistry::with_defaults();
-    let ollama = OllamaClient::new(cli.ollama_host.clone(), cli.model.clone());
+    let planner = build_planner(&cli)?;
 
     if let Some(prompt) = cli.prompt_text() {
-        return handle_prompt(&prompt, cli.dry_run, cli.yes, &ollama, &registry).await;
+        return handle_prompt(&prompt, cli.dry_run, cli.yes, planner.as_ref(), &registry).await;
     }
 
-    interactive_loop(&cli, &ollama, &registry).await
+    interactive_loop(&cli, planner.as_ref(), &registry).await
 }
 
-async fn interactive_loop(cli: &Cli, ollama: &OllamaClient, registry: &ToolRegistry) -> Result<()> {
+fn build_planner(cli: &Cli) -> Result<Box<dyn PlannerBackend>> {
+    match cli.backend {
+        Backend::Ollama => {
+            let config = OllamaPlannerConfig::builder()
+                .base_url(cli.ollama_host.clone())
+                .model(cli.ollama_model())
+                .build();
+            Ok(Box::new(OllamaPlannerBackend::new(config)))
+        }
+        Backend::Codex => {
+            let cwd = std::env::current_dir()?.canonicalize()?;
+            let config = CodexPlannerConfig::builder()
+                .binary(cli.codex_binary.clone())
+                .cwd(cwd)
+                .maybe_model(cli.model.clone())
+                .effort(cli.codex_effort)
+                .network_access(cli.codex_network)
+                .build();
+            Ok(Box::new(CodexPlannerBackend::new(config)))
+        }
+    }
+}
+
+async fn interactive_loop(
+    cli: &Cli,
+    planner: &dyn PlannerBackend,
+    registry: &ToolRegistry,
+) -> Result<()> {
     println!("B-Bot interactive mode. Type 'exit' or 'quit' to leave.");
+    println!("Planner backend: {:?}", cli.backend);
 
     loop {
         print!("bbot> ");
@@ -57,7 +89,7 @@ async fn interactive_loop(cli: &Cli, ollama: &OllamaClient, registry: &ToolRegis
             break;
         }
 
-        match handle_prompt(prompt, cli.dry_run, cli.yes, ollama, registry).await {
+        match handle_prompt(prompt, cli.dry_run, cli.yes, planner, registry).await {
             Ok(()) => {}
             Err(AppError::UserDeclined) => {
                 println!("Cancelled.");
@@ -75,14 +107,11 @@ async fn handle_prompt(
     prompt: &str,
     dry_run: bool,
     yes: bool,
-    ollama: &OllamaClient,
+    planner: &dyn PlannerBackend,
     registry: &ToolRegistry,
 ) -> Result<()> {
-    let messages = vec![
-        Message::system(SYSTEM_PROMPT),
-        Message::user(prompt.to_owned()),
-    ];
-    let response = ollama.chat(&messages, &registry.specs()).await?;
+    let tool_specs = registry.specs();
+    let response = planner.plan(prompt, &tool_specs).await?;
     let assistant_message = response.message;
 
     if let Some(tool_calls) = assistant_message.tool_calls.clone() {
